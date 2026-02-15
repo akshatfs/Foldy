@@ -41,7 +41,7 @@ struct ContentView: View {
                     .font(.title3)
                     .fontWeight(.semibold)
 
-                InstructionRow(step: "1", text: "Select any folder in Finder")
+                InstructionRow(step: "1", text: "Select any folder or zip file in Finder")
                 InstructionRow(step: "2", text: "Press Space to open Quick Look")
                 InstructionRow(step: "3", text: "View the folder's contents in a list view")
             }

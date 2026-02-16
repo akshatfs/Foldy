@@ -12,65 +12,103 @@ import Foundation
 struct ZipParser {
     
     /// Parse the zip central directory and return all entries.
+    /// Uses FileHandle to read only the EOCD + Central Directory — never loads the entire archive.
     static func parseEntries(from url: URL) throws -> [ArchiveEntry] {
-        let data = try Data(contentsOf: url)
-        guard let eocdOffset = findEOCD(in: data) else {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { handle.closeFile() }
+        
+        // Get file size
+        let fileSize = handle.seekToEndOfFile()
+        guard fileSize >= 22 else {
             throw NSError(domain: "ZipParser", code: 1,
                           userInfo: [NSLocalizedDescriptionKey: "Not a valid zip file"])
         }
         
-        // Read EOCD record
-        let cdEntryCount = readUInt16(data, offset: eocdOffset + 10)
-        let _ = readUInt32(data, offset: eocdOffset + 12) // cdSize
-        let cdOffset = readUInt32(data, offset: eocdOffset + 16)
+        // --- Step 1: Read the tail of the file to find EOCD ---
+        // EOCD is at most 22 + 65535 (comment) bytes from the end
+        let tailSize = min(fileSize, 65558)
+        let tailOffset = fileSize - tailSize
+        handle.seek(toFileOffset: tailOffset)
+        let tailData = handle.readData(ofLength: Int(tailSize))
+        
+        guard let eocdRelOffset = findEOCD(in: tailData) else {
+            throw NSError(domain: "ZipParser", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "Not a valid zip file"])
+        }
+        
+        // Absolute offset of EOCD in the file
+        let eocdAbsOffset = tailOffset + UInt64(eocdRelOffset)
+        
+        // --- Step 2: Parse EOCD record ---
+        let cdEntryCount = readUInt16(tailData, offset: eocdRelOffset + 10)
+        let cdSize = readUInt32(tailData, offset: eocdRelOffset + 12)
+        let cdOffset = readUInt32(tailData, offset: eocdRelOffset + 16)
         
         // Check for Zip64 EOCD locator
         var actualCDOffset = UInt64(cdOffset)
+        var actualCDSize = UInt64(cdSize)
         var actualEntryCount = UInt64(cdEntryCount)
         
         if cdOffset == 0xFFFFFFFF || cdEntryCount == 0xFFFF {
-            // Try to find Zip64 EOCD locator (just before EOCD)
-            if eocdOffset >= 20 {
-                let locatorSig = readUInt32(data, offset: eocdOffset - 20)
-                if locatorSig == 0x07064b50 {
-                    let zip64EOCDOffset = readUInt64(data, offset: eocdOffset - 20 + 8)
-                    let zip64Sig = readUInt32(data, offset: Int(zip64EOCDOffset))
-                    if zip64Sig == 0x06064b50 {
-                        actualEntryCount = readUInt64(data, offset: Int(zip64EOCDOffset) + 32)
-                        actualCDOffset = readUInt64(data, offset: Int(zip64EOCDOffset) + 48)
+            // Zip64 EOCD locator is 20 bytes before the EOCD
+            if eocdAbsOffset >= 20 {
+                let locatorRelOffset = eocdRelOffset - 20
+                if locatorRelOffset >= 0 {
+                    let locatorSig = readUInt32(tailData, offset: locatorRelOffset)
+                    if locatorSig == 0x07064b50 {
+                        let zip64EOCDOffset = readUInt64(tailData, offset: locatorRelOffset + 8)
+                        // Read the Zip64 EOCD record (we need at least 56 bytes)
+                        handle.seek(toFileOffset: zip64EOCDOffset)
+                        let zip64Data = handle.readData(ofLength: 56)
+                        if zip64Data.count >= 56 {
+                            let zip64Sig = readUInt32(zip64Data, offset: 0)
+                            if zip64Sig == 0x06064b50 {
+                                actualEntryCount = readUInt64(zip64Data, offset: 32)
+                                actualCDSize = readUInt64(zip64Data, offset: 40)
+                                actualCDOffset = readUInt64(zip64Data, offset: 48)
+                            }
+                        }
                     }
                 }
             }
         }
         
+        // --- Step 3: Read only the Central Directory ---
+        guard actualCDSize > 0, actualCDSize < fileSize else {
+            return []
+        }
+        handle.seek(toFileOffset: actualCDOffset)
+        let cdData = handle.readData(ofLength: Int(actualCDSize))
+        
+        // --- Step 4: Parse CD entries from the small buffer ---
         var entries: [ArchiveEntry] = []
-        var offset = Int(actualCDOffset)
+        var offset = 0
         
         for _ in 0..<actualEntryCount {
-            guard offset + 46 <= data.count else { break }
+            guard offset + 46 <= cdData.count else { break }
             
-            let sig = readUInt32(data, offset: offset)
+            let sig = readUInt32(cdData, offset: offset)
             guard sig == 0x02014b50 else { break } // Central directory file header signature
             
-            let modTime = readUInt16(data, offset: offset + 12)
-            let modDate = readUInt16(data, offset: offset + 14)
-            var uncompressedSize = UInt64(readUInt32(data, offset: offset + 24))
-            let fileNameLength = Int(readUInt16(data, offset: offset + 28))
-            let extraFieldLength = Int(readUInt16(data, offset: offset + 30))
-            let commentLength = Int(readUInt16(data, offset: offset + 32))
+            let modTime = readUInt16(cdData, offset: offset + 12)
+            let modDate = readUInt16(cdData, offset: offset + 14)
+            var uncompressedSize = UInt64(readUInt32(cdData, offset: offset + 24))
+            let fileNameLength = Int(readUInt16(cdData, offset: offset + 28))
+            let extraFieldLength = Int(readUInt16(cdData, offset: offset + 30))
+            let commentLength = Int(readUInt16(cdData, offset: offset + 32))
             
-            guard offset + 46 + fileNameLength <= data.count else { break }
+            guard offset + 46 + fileNameLength <= cdData.count else { break }
             
-            let nameData = data[offset + 46 ..< offset + 46 + fileNameLength]
+            let nameData = cdData[offset + 46 ..< offset + 46 + fileNameLength]
             let fileName = String(data: nameData, encoding: .utf8) ?? ""
             
             // Check for Zip64 extra field to get real uncompressed size
             if uncompressedSize == 0xFFFFFFFF {
                 let extraStart = offset + 46 + fileNameLength
                 let extraEnd = extraStart + extraFieldLength
-                if extraEnd <= data.count {
+                if extraEnd <= cdData.count {
                     uncompressedSize = findZip64UncompressedSize(
-                        in: data, extraStart: extraStart, extraEnd: extraEnd
+                        in: cdData, extraStart: extraStart, extraEnd: extraEnd
                     ) ?? uncompressedSize
                 }
             }

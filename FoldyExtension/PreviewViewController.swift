@@ -158,9 +158,7 @@ class PreviewViewController: NSViewController, QLPreviewingController {
                 let entries = try TarParser.parseEntries(from: url)
                 items = ArchiveTreeBuilder.buildTree(from: entries)
             case .gzipTar:
-                let compressedData = try Data(contentsOf: url)
-                let tarData = try GzipDecompressor.decompress(compressedData)
-                let entries = try TarParser.parseEntries(from: tarData)
+                let entries = try GzipDecompressor.decompressAndParseTar(from: url)
                 items = ArchiveTreeBuilder.buildTree(from: entries)
             case .rar:
                 let entries = try RarParser.parseEntries(from: url)

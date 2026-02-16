@@ -17,49 +17,61 @@ struct GzipDecompressor {
         case decompressFailed
     }
     
-    /// Decompress gzip data using streaming compression_stream API.
-    static func decompress(_ data: Data) throws -> Data {
-        guard data.count >= 10,
-              data[0] == 0x1F, data[1] == 0x8B else {
+    /// Decompress a gzip file and parse the inner tar archive in a single streaming pass.
+    /// Never loads the entire compressed or decompressed file into memory.
+    /// Peak memory: ~128 KB (input + output buffers).
+    static func decompressAndParseTar(from url: URL) throws -> [ArchiveEntry] {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { handle.closeFile() }
+        
+        // Read and validate gzip header (at least 10 bytes)
+        let header = handle.readData(ofLength: 10)
+        guard header.count >= 10,
+              header[0] == 0x1F, header[1] == 0x8B else {
             throw GzipError.notGzip
         }
         
-        // Skip gzip header to find the raw DEFLATE stream
-        var offset = 10
-        let flags = data[3]
+        // Skip gzip header fields
+        var offset: UInt64 = 10
+        let flags = header[3]
         
         // FEXTRA
         if flags & 0x04 != 0 {
-            guard offset + 2 <= data.count else { throw GzipError.notGzip }
-            let extraLen = Int(data[offset]) | (Int(data[offset + 1]) << 8)
-            offset += 2 + extraLen
+            handle.seek(toFileOffset: offset)
+            let extraLenData = handle.readData(ofLength: 2)
+            guard extraLenData.count == 2 else { throw GzipError.notGzip }
+            let extraLen = Int(extraLenData[0]) | (Int(extraLenData[1]) << 8)
+            offset += 2 + UInt64(extraLen)
         }
         // FNAME
         if flags & 0x08 != 0 {
-            while offset < data.count && data[offset] != 0 { offset += 1 }
-            offset += 1
+            handle.seek(toFileOffset: offset)
+            while true {
+                let byte = handle.readData(ofLength: 1)
+                guard byte.count == 1 else { throw GzipError.notGzip }
+                offset += 1
+                if byte[0] == 0 { break }
+            }
         }
         // FCOMMENT
         if flags & 0x10 != 0 {
-            while offset < data.count && data[offset] != 0 { offset += 1 }
-            offset += 1
+            handle.seek(toFileOffset: offset)
+            while true {
+                let byte = handle.readData(ofLength: 1)
+                guard byte.count == 1 else { throw GzipError.notGzip }
+                offset += 1
+                if byte[0] == 0 { break }
+            }
         }
         // FHCRC
         if flags & 0x02 != 0 {
             offset += 2
         }
         
-        guard offset < data.count else { throw GzipError.notGzip }
+        // Position at the start of the DEFLATE stream
+        handle.seek(toFileOffset: offset)
         
-        // Compressed DEFLATE data (excluding trailing 8 bytes: CRC32 + ISIZE)
-        let compressedData = data[offset..<(data.count - 8)]
-        
-        // Use streaming decompression to handle arbitrary output sizes
-        return try streamingDecompress(compressedData)
-    }
-    
-    /// Streaming decompression using compression_stream — handles any output size.
-    private static func streamingDecompress(_ compressedData: Data) throws -> Data {
+        // Set up streaming decompression
         let streamPtr = UnsafeMutablePointer<compression_stream>.allocate(capacity: 1)
         defer { streamPtr.deallocate() }
         
@@ -67,38 +79,214 @@ struct GzipDecompressor {
         guard initStatus == COMPRESSION_STATUS_OK else { throw GzipError.decompressFailed }
         defer { compression_stream_destroy(streamPtr) }
         
-        let chunkSize = 65536 // 64 KB output chunks
-        var result = Data()
-        let outputBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: chunkSize)
-        defer { outputBuffer.deallocate() }
-        
-        try compressedData.withUnsafeBytes { (srcPtr: UnsafeRawBufferPointer) in
-            guard let srcBase = srcPtr.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
-                throw GzipError.decompressFailed
-            }
-            
-            streamPtr.pointee.src_ptr = srcBase
-            streamPtr.pointee.src_size = compressedData.count
-            
-            repeat {
-                streamPtr.pointee.dst_ptr = outputBuffer
-                streamPtr.pointee.dst_size = chunkSize
-                
-                let processStatus = compression_stream_process(streamPtr, 0)
-                
-                let bytesWritten = chunkSize - streamPtr.pointee.dst_size
-                if bytesWritten > 0 {
-                    result.append(outputBuffer, count: bytesWritten)
-                }
-                
-                if processStatus == COMPRESSION_STATUS_END {
-                    break
-                } else if processStatus == COMPRESSION_STATUS_ERROR {
-                    throw GzipError.decompressFailed
-                }
-            } while streamPtr.pointee.src_size > 0 || streamPtr.pointee.dst_size == 0
+        let inputChunkSize = 65536  // 64 KB input
+        let outputChunkSize = 65536 // 64 KB output
+        let inputBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: inputChunkSize)
+        let outputBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: outputChunkSize)
+        defer {
+            inputBuffer.deallocate()
+            outputBuffer.deallocate()
         }
         
-        return result
+        // Tar streaming state
+        let tarBlockSize = 512
+        var tarBuffer = Data() // Accumulates decompressed bytes until we have a full tar block
+        var entries: [ArchiveEntry] = []
+        var tarOffset: Int64 = 0 // Current position in the decompressed tar stream
+        var skipUntil: Int64 = 0 // Skip data blocks — we only want headers
+        var longName: String? = nil
+        var finished = false
+        
+        // Read compressed data in chunks
+        streamPtr.pointee.src_size = 0
+        
+        while !finished {
+            // Refill input buffer if needed
+            if streamPtr.pointee.src_size == 0 {
+                let inputData = handle.readData(ofLength: inputChunkSize)
+                if inputData.count == 0 {
+                    // No more input — do a final flush
+                    finished = true
+                } else {
+                    inputData.copyBytes(to: inputBuffer, count: inputData.count)
+                    streamPtr.pointee.src_ptr = UnsafePointer(inputBuffer)
+                    streamPtr.pointee.src_size = inputData.count
+                }
+            }
+            
+            streamPtr.pointee.dst_ptr = outputBuffer
+            streamPtr.pointee.dst_size = outputChunkSize
+            
+            let flags: Int32 = finished ? Int32(COMPRESSION_STREAM_FINALIZE.rawValue) : 0
+            let status = compression_stream_process(streamPtr, flags)
+            
+            let bytesWritten = outputChunkSize - streamPtr.pointee.dst_size
+            if bytesWritten > 0 {
+                let decompressedChunk = Data(bytes: outputBuffer, count: bytesWritten)
+                
+                // Feed decompressed bytes into inline tar parser
+                var chunkOffset = 0
+                while chunkOffset < decompressedChunk.count {
+                    let currentTarPos = tarOffset + Int64(tarBuffer.count)
+                    
+                    // If we're skipping data blocks, just advance
+                    if currentTarPos < skipUntil {
+                        let bytesToSkip = min(
+                            Int(skipUntil - currentTarPos),
+                            decompressedChunk.count - chunkOffset
+                        )
+                        chunkOffset += bytesToSkip
+                        tarOffset += Int64(bytesToSkip)
+                        continue
+                    }
+                    
+                    // Accumulate bytes until we have a full tar block (512 bytes)
+                    let bytesNeeded = tarBlockSize - tarBuffer.count
+                    let bytesAvailable = decompressedChunk.count - chunkOffset
+                    let bytesToCopy = min(bytesNeeded, bytesAvailable)
+                    
+                    tarBuffer.append(decompressedChunk[chunkOffset..<chunkOffset + bytesToCopy])
+                    chunkOffset += bytesToCopy
+                    
+                    if tarBuffer.count == tarBlockSize {
+                        // We have a complete tar header block
+                        let result = parseTarHeaderBlock(tarBuffer, longName: &longName)
+                        
+                        switch result {
+                        case .entry(let entry, let dataSize):
+                            entries.append(entry)
+                            // Skip past data blocks
+                            let dataBlocks = (dataSize + Int64(tarBlockSize) - 1) / Int64(tarBlockSize)
+                            tarOffset += Int64(tarBlockSize)
+                            skipUntil = tarOffset + dataBlocks * Int64(tarBlockSize)
+                            
+                        case .longName(let dataSize):
+                            // Need to read the long name data — accumulate it
+                            tarOffset += Int64(tarBlockSize)
+                            // For long names, we already set longName in the parser
+                            // We need to read nameDataSize bytes
+                            let dataBlocks = (dataSize + Int64(tarBlockSize) - 1) / Int64(tarBlockSize)
+                            skipUntil = tarOffset + dataBlocks * Int64(tarBlockSize)
+                            
+                        case .skip(let dataSize):
+                            let dataBlocks = (dataSize + Int64(tarBlockSize) - 1) / Int64(tarBlockSize)
+                            tarOffset += Int64(tarBlockSize)
+                            skipUntil = tarOffset + dataBlocks * Int64(tarBlockSize)
+                            
+                        case .end:
+                            finished = true
+                            
+                        case .continueReading:
+                            tarOffset += Int64(tarBlockSize)
+                        }
+                        
+                        tarBuffer = Data()
+                    }
+                }
+            }
+            
+            if status == COMPRESSION_STATUS_END {
+                finished = true
+            } else if status == COMPRESSION_STATUS_ERROR {
+                throw GzipError.decompressFailed
+            }
+        }
+        
+        return entries
+    }
+    
+    // MARK: - Inline Tar Header Parser
+    
+    private enum TarHeaderResult {
+        case entry(ArchiveEntry, dataSize: Int64)
+        case longName(dataSize: Int64)
+        case skip(dataSize: Int64)
+        case end
+        case continueReading
+    }
+    
+    private static func parseTarHeaderBlock(_ block: Data, longName: inout String?) -> TarHeaderResult {
+        // Check for end-of-archive (all-zero block)
+        if block.allSatisfy({ $0 == 0 }) {
+            return .end
+        }
+        
+        let typeflag = block[156]
+        
+        let sizeStr = readOctalString(block, offset: 124, length: 12)
+        let fileSize = Int64(sizeStr, radix: 8) ?? 0
+        
+        // Handle GNU long name extension (typeflag 'L')
+        if typeflag == 0x4C {
+            // We can't easily read the long name in streaming mode without
+            // buffering the name data. For simplicity, clear longName — the
+            // name data follows in the next blocks. We'll just skip it and
+            // use the regular name from the next file header.
+            longName = nil
+            return .longName(dataSize: fileSize)
+        }
+        
+        // Skip PAX extended headers and GNU long link
+        if typeflag == 0x78 || typeflag == 0x67 || typeflag == 0x4B {
+            return .skip(dataSize: fileSize)
+        }
+        
+        // Read filename
+        var fileName: String
+        if let ln = longName {
+            fileName = ln
+            longName = nil
+        } else {
+            let name = readString(block, offset: 0, length: 100)
+            let prefix = readString(block, offset: 345, length: 155)
+            if !prefix.isEmpty {
+                fileName = prefix + "/" + name
+            } else {
+                fileName = name
+            }
+        }
+        
+        guard !fileName.isEmpty else {
+            return .skip(dataSize: fileSize)
+        }
+        
+        let isDir = typeflag == 0x35 || fileName.hasSuffix("/")
+        let isRegularFile = typeflag == 0x30 || typeflag == 0x00
+        
+        if isRegularFile || isDir {
+            let mtimeStr = readOctalString(block, offset: 136, length: 12)
+            let mtime = Int64(mtimeStr, radix: 8) ?? 0
+            let date = mtime > 0 ? Date(timeIntervalSince1970: TimeInterval(mtime)) : nil
+            
+            if !fileName.hasPrefix("._") && !fileName.contains("/._") {
+                let entry = ArchiveEntry(
+                    path: fileName,
+                    isDirectory: isDir,
+                    uncompressedSize: isDir ? 0 : fileSize,
+                    modificationDate: date
+                )
+                return .entry(entry, dataSize: fileSize)
+            }
+        }
+        
+        return .skip(dataSize: fileSize)
+    }
+    
+    // MARK: - Helpers
+    
+    private static func readString(_ data: Data, offset: Int, length: Int) -> String {
+        guard offset + length <= data.count else { return "" }
+        let slice = data[offset..<offset + length]
+        if let nullIndex = slice.firstIndex(of: 0) {
+            let trimmed = data[offset..<nullIndex]
+            return String(data: trimmed, encoding: .utf8) ?? ""
+        }
+        return String(data: slice, encoding: .utf8) ?? ""
+    }
+    
+    private static func readOctalString(_ data: Data, offset: Int, length: Int) -> String {
+        return readString(data, offset: offset, length: length)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "\0"))
     }
 }

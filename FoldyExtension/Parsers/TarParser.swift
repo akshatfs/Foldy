@@ -11,11 +11,114 @@ import Foundation
 
 struct TarParser {
     
-    /// Parse tar headers and return all entries (does NOT decompress — expects raw tar data).
+    private static let blockSize = 512
+    
+    /// Parse tar entries from a file on disk using FileHandle — never loads the entire archive.
+    /// Reads 512-byte headers and seeks past data blocks.
+    static func parseEntries(from url: URL) throws -> [ArchiveEntry] {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { handle.closeFile() }
+        
+        let fileSize = handle.seekToEndOfFile()
+        handle.seek(toFileOffset: 0)
+        
+        var entries: [ArchiveEntry] = []
+        var position: UInt64 = 0
+        var longName: String? = nil
+        
+        while position + UInt64(blockSize) <= fileSize {
+            // Read one 512-byte header block
+            handle.seek(toFileOffset: position)
+            let headerBlock = handle.readData(ofLength: blockSize)
+            guard headerBlock.count == blockSize else { break }
+            
+            // Check for end-of-archive (all-zero block)
+            if headerBlock.allSatisfy({ $0 == 0 }) {
+                break
+            }
+            
+            // Read typeflag (offset 156, 1 byte)
+            let typeflag = headerBlock[156]
+            
+            // Read file size (offset 124, 12 bytes, octal ASCII)
+            let sizeStr = readOctalString(headerBlock, offset: 124, length: 12)
+            let fileSize64 = Int64(sizeStr, radix: 8) ?? 0
+            
+            // Calculate how many 512-byte blocks the data occupies
+            let dataBlocks = (Int64(fileSize64) + Int64(blockSize) - 1) / Int64(blockSize)
+            
+            // Handle GNU long name extension (typeflag 'L')
+            if typeflag == 0x4C { // 'L'
+                let nameDataSize = Int(fileSize64)
+                handle.seek(toFileOffset: position + UInt64(blockSize))
+                let nameData = handle.readData(ofLength: nameDataSize)
+                longName = String(data: nameData, encoding: .utf8)?
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "\0"))
+                position += UInt64(blockSize) + UInt64(dataBlocks) * UInt64(blockSize)
+                continue
+            }
+            
+            // Skip PAX extended headers (typeflags 'x', 'g') and GNU long link ('K')
+            if typeflag == 0x78 || typeflag == 0x67 || typeflag == 0x4B {
+                position += UInt64(blockSize) + UInt64(dataBlocks) * UInt64(blockSize)
+                continue
+            }
+            
+            // Read filename
+            var fileName: String
+            if let ln = longName {
+                fileName = ln
+                longName = nil
+            } else {
+                // USTAR: prefix at offset 345 (155 bytes) + name at offset 0 (100 bytes)
+                let name = readString(headerBlock, offset: 0, length: 100)
+                let prefix = readString(headerBlock, offset: 345, length: 155)
+                if !prefix.isEmpty {
+                    fileName = prefix + "/" + name
+                } else {
+                    fileName = name
+                }
+            }
+            
+            guard !fileName.isEmpty else {
+                position += UInt64(blockSize) + UInt64(dataBlocks) * UInt64(blockSize)
+                continue
+            }
+            
+            // Determine if directory: typeflag '5' or trailing '/'
+            let isDir = typeflag == 0x35 || fileName.hasSuffix("/") // '5'
+            
+            // Only include regular files ('0', '\0') and directories ('5')
+            let isRegularFile = typeflag == 0x30 || typeflag == 0x00 // '0' or NUL
+            if isRegularFile || isDir {
+                // Read modification time (offset 136, 12 bytes, octal — unix timestamp)
+                let mtimeStr = readOctalString(headerBlock, offset: 136, length: 12)
+                let mtime = Int64(mtimeStr, radix: 8) ?? 0
+                let date = mtime > 0 ? Date(timeIntervalSince1970: TimeInterval(mtime)) : nil
+                
+                // Skip macOS metadata
+                if !fileName.hasPrefix("._") && !fileName.contains("/._") {
+                    entries.append(ArchiveEntry(
+                        path: fileName,
+                        isDirectory: isDir,
+                        uncompressedSize: isDir ? 0 : fileSize64,
+                        modificationDate: date
+                    ))
+                }
+            }
+            
+            // Advance past header + data blocks (seek, don't read)
+            position += UInt64(blockSize) + UInt64(dataBlocks) * UInt64(blockSize)
+        }
+        
+        return entries
+    }
+    
+    /// Parse tar headers from in-memory Data (used by GzipDecompressor for tar-inside-gzip).
     static func parseEntries(from data: Data) throws -> [ArchiveEntry] {
         var entries: [ArchiveEntry] = []
         var offset = 0
-        let blockSize = 512
+        
         var longName: String? = nil
         
         while offset + blockSize <= data.count {
@@ -107,12 +210,6 @@ struct TarParser {
         }
         
         return entries
-    }
-    
-    /// Parse entries from a tar file on disk.
-    static func parseEntries(from url: URL) throws -> [ArchiveEntry] {
-        let data = try Data(contentsOf: url)
-        return try parseEntries(from: data)
     }
     
     // MARK: - Helpers

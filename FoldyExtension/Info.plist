@@ -14,6 +14,7 @@
 				<string>public.zip-archive</string>
 				<string>public.tar-archive</string>
 				<string>org.gnu.gnu-zip-archive</string>
+				<string>org.gnu.gnu-zip-tar-archive</string>
 				<string>com.rarlab.rar-archive</string>
 			</array>
 			<key>QLSupportsSearchableItems</key>
@@ -46,6 +47,27 @@
 				<array>
 					<string>application/vnd.rar</string>
 					<string>application/x-rar-compressed</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>org.gnu.gnu-zip-tar-archive</string>
+			<key>UTTypeDescription</key>
+			<string>Gzip Compressed Tar Archive</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>org.gnu.gnu-zip-archive</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>tgz</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/x-compressed-tar</string>
 				</array>
 			</dict>
 		</dict>

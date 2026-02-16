@@ -23,6 +23,7 @@ class PreviewViewController: NSViewController, QLPreviewingController {
     
     private var outlineView: NSOutlineView!
     private var scrollView: NSScrollView!
+    private var progressIndicator: NSProgressIndicator!
     private var errorLabel: NSTextField?
     private var rootItems: [PreviewItem] = []
     
@@ -50,6 +51,7 @@ class PreviewViewController: NSViewController, QLPreviewingController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupOutlineView()
+        setupLoadingView()
     }
     
     // MARK: - Setup
@@ -112,6 +114,21 @@ class PreviewViewController: NSViewController, QLPreviewingController {
         ])
     }
     
+    private func setupLoadingView() {
+        progressIndicator = NSProgressIndicator()
+        progressIndicator.style = .spinning
+        progressIndicator.controlSize = .regular
+        progressIndicator.isDisplayedWhenStopped = false
+        progressIndicator.translatesAutoresizingMaskIntoConstraints = false
+        
+        view.addSubview(progressIndicator)
+        
+        NSLayoutConstraint.activate([
+            progressIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            progressIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+        ])
+    }
+    
     // MARK: - Error UI
     
     private func showError(_ message: String) {
@@ -149,6 +166,12 @@ class PreviewViewController: NSViewController, QLPreviewingController {
     // MARK: - QLPreviewingController
     
     func preparePreviewOfFile(at url: URL) async throws {
+        await MainActor.run {
+            progressIndicator.startAnimation(nil)
+            scrollView.isHidden = true
+            errorLabel?.isHidden = true
+        }
+        
         _ = url.startAccessingSecurityScopedResource()
         defer { url.stopAccessingSecurityScopedResource() }
         
@@ -177,11 +200,14 @@ class PreviewViewController: NSViewController, QLPreviewingController {
             }
             
             await MainActor.run {
+                self.progressIndicator.stopAnimation(nil)
                 self.rootItems = items
+                self.scrollView.isHidden = false
                 self.outlineView.reloadData()
             }
         } catch {
             await MainActor.run {
+                self.progressIndicator.stopAnimation(nil)
                 self.showError("Unable to preview this archive: \(error.localizedDescription)")
             }
         }

@@ -1,4 +1,7 @@
-# Foldy
+<h1 align="center">
+  <img src="Foldy/Assets.xcassets/AppIcon.appiconset/icon_128x128@2x.png" width="64" style="vertical-align: middle;">
+  <span style="vertical-align: middle;">Foldy</span>
+</h1>
 
 **Foldy** is a powerful and lightweight macOS Quick Look extension that lets you preview the contents of folders and archive files without extracting or opening them. Simply select an archive, press `Space`, and explore its structure instantly.
 
@@ -55,10 +58,10 @@ If the preview doesn't appear:
 
 Contributions are welcome! Feel free to open an issue or submit a pull request.
 
----
-
-Built with ❤️ for macOS.
-
 ## Credits
 
 This project uses bzip2.swift package from awxkee. [Link](https://github.com/awxkee/bzip2.swift.git)
+
+---
+
+Built with ❤️ for macOS.

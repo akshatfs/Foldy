@@ -23,6 +23,7 @@ class PreviewViewController: NSViewController, QLPreviewingController {
     
     private var outlineView: NSOutlineView!
     private var scrollView: NSScrollView!
+    private var errorLabel: NSTextField?
     private var rootItems: [PreviewItem] = []
     
     private lazy var dateFormatter: DateFormatter = {
@@ -105,37 +106,77 @@ class PreviewViewController: NSViewController, QLPreviewingController {
         ])
     }
     
+    // MARK: - Error UI
+    
+    private func showError(_ message: String) {
+        // Hide the outline/scroll view so the user doesn't see a blank table
+        scrollView.isHidden = true
+        
+        // Reuse or create the error label
+        if errorLabel == nil {
+            let label = NSTextField(wrappingLabelWithString: "")
+            label.isEditable = false
+            label.isBordered = false
+            label.drawsBackground = false
+            label.alignment = .center
+            label.font = NSFont.systemFont(ofSize: 13)
+            label.textColor = .secondaryLabelColor
+            label.translatesAutoresizingMaskIntoConstraints = false
+            label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            
+            view.addSubview(label)
+            
+            NSLayoutConstraint.activate([
+                label.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+                label.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 20),
+                label.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -20),
+                label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            ])
+            
+            errorLabel = label
+        }
+        
+        errorLabel?.stringValue = message
+        errorLabel?.isHidden = false
+    }
+    
     // MARK: - QLPreviewingController
     
     func preparePreviewOfFile(at url: URL) async throws {
         _ = url.startAccessingSecurityScopedResource()
         defer { url.stopAccessingSecurityScopedResource() }
         
-        let items: [PreviewItem]
-        let archiveType = detectArchiveType(url: url)
-        
-        switch archiveType {
-        case .zip:
-            let entries = try ZipParser.parseEntries(from: url)
-            items = ArchiveTreeBuilder.buildTree(from: entries)
-        case .tar:
-            let entries = try TarParser.parseEntries(from: url)
-            items = ArchiveTreeBuilder.buildTree(from: entries)
-        case .gzipTar:
-            let compressedData = try Data(contentsOf: url)
-            let tarData = try GzipDecompressor.decompress(compressedData)
-            let entries = try TarParser.parseEntries(from: tarData)
-            items = ArchiveTreeBuilder.buildTree(from: entries)
-        case .rar:
-            let entries = try RarParser.parseEntries(from: url)
-            items = ArchiveTreeBuilder.buildTree(from: entries)
-        case .folder:
-            items = FileItem.loadChildren(of: url)
-        }
-        
-        await MainActor.run {
-            self.rootItems = items
-            self.outlineView.reloadData()
+        do {
+            let items: [PreviewItem]
+            let archiveType = detectArchiveType(url: url)
+            
+            switch archiveType {
+            case .zip:
+                let entries = try ZipParser.parseEntries(from: url)
+                items = ArchiveTreeBuilder.buildTree(from: entries)
+            case .tar:
+                let entries = try TarParser.parseEntries(from: url)
+                items = ArchiveTreeBuilder.buildTree(from: entries)
+            case .gzipTar:
+                let compressedData = try Data(contentsOf: url)
+                let tarData = try GzipDecompressor.decompress(compressedData)
+                let entries = try TarParser.parseEntries(from: tarData)
+                items = ArchiveTreeBuilder.buildTree(from: entries)
+            case .rar:
+                let entries = try RarParser.parseEntries(from: url)
+                items = ArchiveTreeBuilder.buildTree(from: entries)
+            case .folder:
+                items = FileItem.loadChildren(of: url)
+            }
+            
+            await MainActor.run {
+                self.rootItems = items
+                self.outlineView.reloadData()
+            }
+        } catch {
+            await MainActor.run {
+                self.showError("Unable to preview this archive: \(error.localizedDescription)")
+            }
         }
     }
     

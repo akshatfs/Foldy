@@ -13,5 +13,6 @@ struct FoldyApp: App {
         WindowGroup {
             ContentView()
         }
+        .windowResizability(.contentSize)
     }
 }

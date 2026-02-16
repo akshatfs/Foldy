@@ -33,6 +33,12 @@ class PreviewViewController: NSViewController, QLPreviewingController {
         return f
     }()
     
+    private lazy var byteCountFormatter: ByteCountFormatter = {
+        let f = ByteCountFormatter()
+        f.countStyle = .file
+        return f
+    }()
+    
     override var nibName: NSNib.Name? {
         return nil
     }
@@ -217,9 +223,7 @@ class PreviewViewController: NSViewController, QLPreviewingController {
     }
     
     private func formatFileSize(_ bytes: Int64) -> String {
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .file
-        return formatter.string(fromByteCount: bytes)
+        return byteCountFormatter.string(fromByteCount: bytes)
     }
 }
 

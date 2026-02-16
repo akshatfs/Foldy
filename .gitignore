@@ -1,2 +1,5 @@
 .agent/workflows/xcode-build.md
 .gemini/settings.json
+Foldy.dmg
+build/
+*.xcarchive

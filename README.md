@@ -27,7 +27,29 @@ Foldy currently supports the following archive types:
 - **RAR** (`.rar`) - Supports both v4 and v5
 - **Tar + BZip** (`.bz2`, `.tar.bz2`)
 
-## Installation From Source
+## Installation 
+
+### From Release
+
+1. Download the DMG file from Github Releases
+2. Open the DMG File and Drag and Drop the Foldy App to Applications Folder
+
+      ### macOS Gatekeeper Warning
+
+      Foldy is signed but **not notarized** by Apple. When you first launch the app, macOS Gatekeeper may display a security warning. This is normal and expected.
+
+      ### How to Run the App
+
+      When you first try to launch Foldy, Gatekeeper will display a security warning with options to "Close" or "Move to Bin".
+
+      ### To run the app:
+
+      1. Go to **System Settings** → **Privacy & Security**
+      2. Scroll down to find the Foldy security warning
+      3. Click the **"Open Anyway"** button next to the warning
+      4. Launch Foldy again, and you won't see the warning
+
+### From Source
 
 1. Clone the repository:
 

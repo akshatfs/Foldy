@@ -9,339 +9,6 @@ import Cocoa
 import Quartz
 import UniformTypeIdentifiers
 
-// MARK: - Preview Item Protocol
-
-protocol PreviewItem: AnyObject {
-    var name: String { get }
-    var isDirectory: Bool { get }
-    var icon: NSImage { get }
-    var dateModified: Date? { get }
-    var fileSize: Int64? { get }
-    var children: [PreviewItem]? { get }
-}
-
-// MARK: - File Item Model (folders on disk)
-
-class FileItem: NSObject, PreviewItem {
-    let url: URL
-    let name: String
-    let isDirectory: Bool
-    let icon: NSImage
-    let dateModified: Date?
-    let fileSize: Int64?
-    var _children: [FileItem]?
-    
-    var children: [PreviewItem]? {
-        return _children
-    }
-    
-    init(url: URL) {
-        self.url = url
-        
-        let resourceValues = try? url.resourceValues(forKeys: [
-            .nameKey, .isDirectoryKey, .contentModificationDateKey,
-            .fileSizeKey, .totalFileSizeKey
-        ])
-        
-        self.name = resourceValues?.name ?? url.lastPathComponent
-        self.isDirectory = resourceValues?.isDirectory ?? false
-        self.dateModified = resourceValues?.contentModificationDate
-        self.fileSize = resourceValues?.fileSize.map { Int64($0) }
-        self.icon = NSWorkspace.shared.icon(forFile: url.path)
-        self.icon.size = NSSize(width: 16, height: 16)
-        
-        if self.isDirectory {
-            self._children = FileItem.loadChildren(of: url)
-        }
-        
-        super.init()
-    }
-    
-    static func loadChildren(of url: URL) -> [FileItem] {
-        guard let contents = try? FileManager.default.contentsOfDirectory(
-            at: url,
-            includingPropertiesForKeys: [
-                .nameKey, .isDirectoryKey, .contentModificationDateKey,
-                .fileSizeKey
-            ],
-            options: [.skipsHiddenFiles]
-        ) else {
-            return []
-        }
-        
-        let items = contents.map { FileItem(url: $0) }
-        
-        // Sort: folders first, then files, alphabetically within each group
-        return items.sorted { a, b in
-            if a.isDirectory != b.isDirectory {
-                return a.isDirectory
-            }
-            return a.name.localizedStandardCompare(b.name) == .orderedAscending
-        }
-    }
-}
-
-// MARK: - Zip File Item Model (entries inside a zip archive)
-
-class ZipFileItem: NSObject, PreviewItem {
-    let name: String
-    let isDirectory: Bool
-    let icon: NSImage
-    let dateModified: Date?
-    let fileSize: Int64?
-    var _children: [ZipFileItem]?
-    
-    var children: [PreviewItem]? {
-        return _children
-    }
-    
-    init(name: String, isDirectory: Bool, fileSize: Int64?, dateModified: Date?) {
-        self.name = name
-        self.isDirectory = isDirectory
-        self.fileSize = fileSize
-        self.dateModified = dateModified
-        
-        if isDirectory {
-            self.icon = NSWorkspace.shared.icon(for: UTType.folder)
-        } else {
-            // Determine icon from file extension
-            let ext = (name as NSString).pathExtension
-            if ext.isEmpty {
-                self.icon = NSWorkspace.shared.icon(for: UTType.data)
-            } else if let type = UTType(filenameExtension: ext) {
-                self.icon = NSWorkspace.shared.icon(for: type)
-            } else {
-                self.icon = NSWorkspace.shared.icon(for: UTType.data)
-            }
-        }
-        self.icon.size = NSSize(width: 16, height: 16)
-        
-        super.init()
-    }
-    
-    /// Sort children: folders first, then alphabetically
-    func sortChildren() {
-        _children?.sort { a, b in
-            if a.isDirectory != b.isDirectory {
-                return a.isDirectory
-            }
-            return a.name.localizedStandardCompare(b.name) == .orderedAscending
-        }
-        _children?.forEach { $0.sortChildren() }
-    }
-}
-
-// MARK: - Zip Central Directory Parser
-
-struct ZipParser {
-    
-    struct Entry {
-        let path: String
-        let isDirectory: Bool
-        let uncompressedSize: Int64
-        let modificationDate: Date?
-    }
-    
-    /// Parse the zip central directory and return all entries.
-    static func parseEntries(from url: URL) throws -> [Entry] {
-        let data = try Data(contentsOf: url)
-        guard let eocdOffset = findEOCD(in: data) else {
-            throw NSError(domain: "ZipParser", code: 1,
-                          userInfo: [NSLocalizedDescriptionKey: "Not a valid zip file"])
-        }
-        
-        // Read EOCD record
-        let cdEntryCount = readUInt16(data, offset: eocdOffset + 10)
-        let _ = readUInt32(data, offset: eocdOffset + 12) // cdSize
-        let cdOffset = readUInt32(data, offset: eocdOffset + 16)
-        
-        // Check for Zip64 EOCD locator
-        var actualCDOffset = UInt64(cdOffset)
-        var actualEntryCount = UInt64(cdEntryCount)
-        
-        if cdOffset == 0xFFFFFFFF || cdEntryCount == 0xFFFF {
-            // Try to find Zip64 EOCD locator (just before EOCD)
-            if eocdOffset >= 20 {
-                let locatorSig = readUInt32(data, offset: eocdOffset - 20)
-                if locatorSig == 0x07064b50 {
-                    let zip64EOCDOffset = readUInt64(data, offset: eocdOffset - 20 + 8)
-                    let zip64Sig = readUInt32(data, offset: Int(zip64EOCDOffset))
-                    if zip64Sig == 0x06064b50 {
-                        actualEntryCount = readUInt64(data, offset: Int(zip64EOCDOffset) + 32)
-                        actualCDOffset = readUInt64(data, offset: Int(zip64EOCDOffset) + 48)
-                    }
-                }
-            }
-        }
-        
-        var entries: [Entry] = []
-        var offset = Int(actualCDOffset)
-        
-        for _ in 0..<actualEntryCount {
-            guard offset + 46 <= data.count else { break }
-            
-            let sig = readUInt32(data, offset: offset)
-            guard sig == 0x02014b50 else { break } // Central directory file header signature
-            
-            let modTime = readUInt16(data, offset: offset + 12)
-            let modDate = readUInt16(data, offset: offset + 14)
-            var uncompressedSize = UInt64(readUInt32(data, offset: offset + 24))
-            let fileNameLength = Int(readUInt16(data, offset: offset + 28))
-            let extraFieldLength = Int(readUInt16(data, offset: offset + 30))
-            let commentLength = Int(readUInt16(data, offset: offset + 32))
-            
-            guard offset + 46 + fileNameLength <= data.count else { break }
-            
-            let nameData = data[offset + 46 ..< offset + 46 + fileNameLength]
-            let fileName = String(data: nameData, encoding: .utf8) ?? ""
-            
-            // Check for Zip64 extra field to get real uncompressed size
-            if uncompressedSize == 0xFFFFFFFF {
-                let extraStart = offset + 46 + fileNameLength
-                let extraEnd = extraStart + extraFieldLength
-                if extraEnd <= data.count {
-                    uncompressedSize = findZip64UncompressedSize(
-                        in: data, extraStart: extraStart, extraEnd: extraEnd
-                    ) ?? uncompressedSize
-                }
-            }
-            
-            let isDir = fileName.hasSuffix("/")
-            let date = dosDateTime(date: modDate, time: modTime)
-            
-            // Skip macOS metadata entries
-            if !fileName.hasPrefix("__MACOSX/") && !fileName.isEmpty {
-                entries.append(Entry(
-                    path: fileName,
-                    isDirectory: isDir,
-                    uncompressedSize: Int64(uncompressedSize),
-                    modificationDate: date
-                ))
-            }
-            
-            offset += 46 + fileNameLength + extraFieldLength + commentLength
-        }
-        
-        return entries
-    }
-    
-    /// Build a tree of ZipFileItem from flat entries
-    static func buildTree(from entries: [Entry]) -> [ZipFileItem] {
-        let root = ZipFileItem(name: "", isDirectory: true, fileSize: nil, dateModified: nil)
-        root._children = []
-        
-        // Map of path -> ZipFileItem for quick lookups
-        var nodeMap: [String: ZipFileItem] = ["": root]
-        
-        for entry in entries {
-            let path = entry.isDirectory ? String(entry.path.dropLast()) : entry.path
-            let components = path.split(separator: "/", omittingEmptySubsequences: true)
-            guard !components.isEmpty else { continue }
-            
-            // Ensure all parent directories exist
-            var currentPath = ""
-            var parentNode = root
-            
-            for (index, component) in components.enumerated() {
-                let isLast = index == components.count - 1
-                let partPath = currentPath.isEmpty
-                    ? String(component)
-                    : currentPath + "/" + String(component)
-                
-                if let existing = nodeMap[partPath] {
-                    parentNode = existing
-                } else {
-                    let isDir = isLast ? entry.isDirectory : true
-                    let item = ZipFileItem(
-                        name: String(component),
-                        isDirectory: isDir,
-                        fileSize: (isLast && !entry.isDirectory) ? entry.uncompressedSize : nil,
-                        dateModified: isLast ? entry.modificationDate : nil
-                    )
-                    
-                    if parentNode._children == nil {
-                        parentNode._children = []
-                    }
-                    parentNode._children?.append(item)
-                    nodeMap[partPath] = item
-                    parentNode = item
-                }
-                
-                currentPath = partPath
-            }
-        }
-        
-        root.sortChildren()
-        return root._children ?? []
-    }
-    
-    // MARK: - Binary Helpers
-    
-    /// Find the End of Central Directory record
-    private static func findEOCD(in data: Data) -> Int? {
-        // EOCD signature is 0x06054b50
-        // Minimum EOCD size is 22 bytes, max comment is 65535
-        let minOffset = max(0, data.count - 65557)
-        for i in stride(from: data.count - 22, through: minOffset, by: -1) {
-            if readUInt32(data, offset: i) == 0x06054b50 {
-                return i
-            }
-        }
-        return nil
-    }
-    
-    /// Find Zip64 uncompressed size in an extra field
-    private static func findZip64UncompressedSize(in data: Data, extraStart: Int, extraEnd: Int) -> UInt64? {
-        var pos = extraStart
-        while pos + 4 <= extraEnd {
-            let headerID = readUInt16(data, offset: pos)
-            let dataSize = Int(readUInt16(data, offset: pos + 2))
-            if headerID == 0x0001 && pos + 4 + 8 <= extraEnd { // Zip64 extended info
-                return readUInt64(data, offset: pos + 4)
-            }
-            pos += 4 + dataSize
-        }
-        return nil
-    }
-    
-    private static func readUInt16(_ data: Data, offset: Int) -> UInt16 {
-        guard offset + 2 <= data.count else { return 0 }
-        return UInt16(data[offset]) | (UInt16(data[offset + 1]) << 8)
-    }
-    
-    private static func readUInt32(_ data: Data, offset: Int) -> UInt32 {
-        guard offset + 4 <= data.count else { return 0 }
-        return UInt32(data[offset])
-             | (UInt32(data[offset + 1]) << 8)
-             | (UInt32(data[offset + 2]) << 16)
-             | (UInt32(data[offset + 3]) << 24)
-    }
-    
-    private static func readUInt64(_ data: Data, offset: Int) -> UInt64 {
-        guard offset + 8 <= data.count else { return 0 }
-        return UInt64(data[offset])
-             | (UInt64(data[offset + 1]) << 8)
-             | (UInt64(data[offset + 2]) << 16)
-             | (UInt64(data[offset + 3]) << 24)
-             | (UInt64(data[offset + 4]) << 32)
-             | (UInt64(data[offset + 5]) << 40)
-             | (UInt64(data[offset + 6]) << 48)
-             | (UInt64(data[offset + 7]) << 56)
-    }
-    
-    /// Convert DOS date/time to Foundation Date
-    private static func dosDateTime(date: UInt16, time: UInt16) -> Date? {
-        var components = DateComponents()
-        components.year = Int((date >> 9) & 0x7F) + 1980
-        components.month = Int((date >> 5) & 0x0F)
-        components.day = Int(date & 0x1F)
-        components.hour = Int((time >> 11) & 0x1F)
-        components.minute = Int((time >> 5) & 0x3F)
-        components.second = Int((time & 0x1F) * 2)
-        return Calendar.current.date(from: components)
-    }
-}
-
 // MARK: - Column Identifiers
 
 extension NSUserInterfaceItemIdentifier {
@@ -445,11 +112,24 @@ class PreviewViewController: NSViewController, QLPreviewingController {
         defer { url.stopAccessingSecurityScopedResource() }
         
         let items: [PreviewItem]
+        let archiveType = detectArchiveType(url: url)
         
-        if isZipFile(url: url) {
+        switch archiveType {
+        case .zip:
             let entries = try ZipParser.parseEntries(from: url)
-            items = ZipParser.buildTree(from: entries)
-        } else {
+            items = ArchiveTreeBuilder.buildTree(from: entries)
+        case .tar:
+            let entries = try TarParser.parseEntries(from: url)
+            items = ArchiveTreeBuilder.buildTree(from: entries)
+        case .gzipTar:
+            let compressedData = try Data(contentsOf: url)
+            let tarData = try GzipDecompressor.decompress(compressedData)
+            let entries = try TarParser.parseEntries(from: tarData)
+            items = ArchiveTreeBuilder.buildTree(from: entries)
+        case .rar:
+            let entries = try RarParser.parseEntries(from: url)
+            items = ArchiveTreeBuilder.buildTree(from: entries)
+        case .folder:
             items = FileItem.loadChildren(of: url)
         }
         
@@ -459,13 +139,42 @@ class PreviewViewController: NSViewController, QLPreviewingController {
         }
     }
     
-    // MARK: - Helpers
+    // MARK: - Archive Type Detection
     
-    private func isZipFile(url: URL) -> Bool {
-        if let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType {
-            return type.conforms(to: UTType.zip)
+    private enum ArchiveType {
+        case zip, tar, gzipTar, rar, folder
+    }
+    
+    private func detectArchiveType(url: URL) -> ArchiveType {
+        let ext = url.pathExtension.lowercased()
+        
+        // Check by extension first
+        switch ext {
+        case "zip":
+            return .zip
+        case "tar":
+            return .tar
+        case "gz", "tgz":
+            return .gzipTar
+        case "rar":
+            return .rar
+        default:
+            break
         }
-        return url.pathExtension.lowercased() == "zip"
+        
+        // Check compound extensions like .tar.gz
+        let name = url.lastPathComponent.lowercased()
+        if name.hasSuffix(".tar.gz") {
+            return .gzipTar
+        }
+        
+        // Fall back to UTType
+        if let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType {
+            if type.conforms(to: UTType.zip) { return .zip }
+            if type.conforms(to: UTType.gzip) { return .gzipTar }
+        }
+        
+        return .folder
     }
     
     private func formatFileSize(_ bytes: Int64) -> String {

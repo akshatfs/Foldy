@@ -1,0 +1,15 @@
+{
+  "originHash" : "555b138c577be40d4dd101abf70f3fe80f614540618ada13c32975780e239b5f",
+  "pins" : [
+    {
+      "identity" : "bzip2.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/awxkee/bzip2.swift.git",
+      "state" : {
+        "revision" : "9e1e969541dca3a771658a332a06d459eee2cbbe",
+        "version" : "1.0.3"
+      }
+    }
+  ],
+  "version" : 3
+}

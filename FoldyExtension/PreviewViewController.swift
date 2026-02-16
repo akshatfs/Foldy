@@ -195,6 +195,12 @@ class PreviewViewController: NSViewController, QLPreviewingController {
             case .rar:
                 let entries = try RarParser.parseEntries(from: url)
                 items = ArchiveTreeBuilder.buildTree(from: entries)
+            case .bz2Tar:
+                let entries = try Bz2Parser.decompressAndParseTar(from: url)
+                items = ArchiveTreeBuilder.buildTree(from: entries)
+            case .bz2:
+                let entries = try Bz2Parser.parseStandaloneBz2(from: url)
+                items = ArchiveTreeBuilder.buildTree(from: entries)
             case .folder:
                 items = FileItem.loadChildren(of: url)
             }
@@ -216,7 +222,7 @@ class PreviewViewController: NSViewController, QLPreviewingController {
     // MARK: - Archive Type Detection
     
     private enum ArchiveType {
-        case zip, tar, gzipTar, gzip, rar, folder
+        case zip, tar, gzipTar, gzip, rar, bz2, bz2Tar, folder
     }
     
     private func detectArchiveType(url: URL) -> ArchiveType {
@@ -224,6 +230,9 @@ class PreviewViewController: NSViewController, QLPreviewingController {
         let name = url.lastPathComponent.lowercased()
         if name.hasSuffix(".tar.gz") {
             return .gzipTar
+        }
+        if name.hasSuffix(".tar.bz2") || name.hasSuffix(".tbz") || name.hasSuffix(".tbz2") {
+            return .bz2Tar
         }
         
         // Then check single extensions
@@ -239,6 +248,8 @@ class PreviewViewController: NSViewController, QLPreviewingController {
             return .gzip
         case "rar":
             return .rar
+        case "bz2":
+            return .bz2
         default:
             break
         }
@@ -247,6 +258,7 @@ class PreviewViewController: NSViewController, QLPreviewingController {
         if let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType {
             if type.conforms(to: UTType.zip) { return .zip }
             if type.conforms(to: UTType.gzip) { return .gzipTar }
+            if let bz2Type = UTType(filenameExtension: "bz2"), type.conforms(to: bz2Type) { return .bz2 }
         }
         
         return .folder

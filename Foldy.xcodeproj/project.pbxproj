@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		7D953EF12F43A85D002616B1 /* bzip2.swift in Frameworks */ = {isa = PBXBuildFile; productRef = 7D953EF02F43A85D002616B1 /* bzip2.swift */; };
 		7D9CA03A2F41BBE100BAA903 /* Quartz.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7D9CA0392F41BBE100BAA903 /* Quartz.framework */; };
 		7D9CA0462F41BBE100BAA903 /* FoldyExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7D9CA0372F41BBE100BAA903 /* FoldyExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
@@ -80,6 +81,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				7D9CA03A2F41BBE100BAA903 /* Quartz.framework in Frameworks */,
+				7D953EF12F43A85D002616B1 /* bzip2.swift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -157,6 +159,7 @@
 			);
 			name = FoldyExtension;
 			packageProductDependencies = (
+				7D953EF02F43A85D002616B1 /* bzip2.swift */,
 			);
 			productName = FoldyExtension;
 			productReference = 7D9CA0372F41BBE100BAA903 /* FoldyExtension.appex */;
@@ -189,6 +192,9 @@
 			);
 			mainGroup = 7D9CA01C2F41BBCC00BAA903;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				7D953EEF2F43A42B002616B1 /* XCRemoteSwiftPackageReference "bzip2.swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 7D9CA0262F41BBCC00BAA903 /* Products */;
 			projectDirPath = "";
@@ -520,6 +526,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		7D953EEF2F43A42B002616B1 /* XCRemoteSwiftPackageReference "bzip2.swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/awxkee/bzip2.swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.3;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		7D953EF02F43A85D002616B1 /* bzip2.swift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7D953EEF2F43A42B002616B1 /* XCRemoteSwiftPackageReference "bzip2.swift" */;
+			productName = bzip2.swift;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 7D9CA01D2F41BBCC00BAA903 /* Project object */;
 }

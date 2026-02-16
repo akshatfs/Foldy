@@ -2,7 +2,7 @@
 
 **Foldy** is a powerful and lightweight macOS Quick Look extension that lets you preview the contents of folders and archive files without extracting or opening them. Simply select an archive, press `Space`, and explore its structure instantly.
 
-**Warning**: Foldy is 100% vibe coded..
+**Warning**: Foldy is 100% vibe coded and bzip support is experimental.
 
 ## features
 
@@ -22,6 +22,7 @@ Foldy currently supports the following archive types:
 - **GZip** (`.gz`)
 - **Tar + GZip** (`.tgz`, `.tar.gz`)
 - **RAR** (`.rar`) - Supports both v4 and v5
+- **Tar + BZip** (`.bz2`, `.tar.bz2`)
 
 ## Installation From Source
 
@@ -57,3 +58,7 @@ Contributions are welcome! Feel free to open an issue or submit a pull request.
 ---
 
 Built with ❤️ for macOS.
+
+## Credits
+
+This project uses bzip2.swift package from awxkee. [Link](https://github.com/awxkee/bzip2.swift.git)

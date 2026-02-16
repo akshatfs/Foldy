@@ -195,6 +195,89 @@ struct GzipDecompressor {
         return entries
     }
     
+    /// Parse a standalone gzip file (not containing tar) by reading only metadata.
+    /// Returns a single ArchiveEntry with the original filename and uncompressed size.
+    static func parseStandaloneGzip(from url: URL) throws -> [ArchiveEntry] {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { handle.closeFile() }
+        
+        // Read and validate gzip header (at least 10 bytes)
+        let header = handle.readData(ofLength: 10)
+        guard header.count >= 10,
+              header[0] == 0x1F, header[1] == 0x8B else {
+            throw GzipError.notGzip
+        }
+        
+        let flags = header[3]
+        
+        // Read modification time from gzip header (bytes 4-7, little-endian)
+        let mtime = UInt32(header[4])
+            | (UInt32(header[5]) << 8)
+            | (UInt32(header[6]) << 16)
+            | (UInt32(header[7]) << 24)
+        let modDate = mtime > 0 ? Date(timeIntervalSince1970: TimeInterval(mtime)) : nil
+        
+        // Try to extract original filename from FNAME field
+        var originalName: String?
+        var offset: UInt64 = 10
+        
+        // FEXTRA — skip extra field if present
+        if flags & 0x04 != 0 {
+            handle.seek(toFileOffset: offset)
+            let extraLenData = handle.readData(ofLength: 2)
+            guard extraLenData.count == 2 else { throw GzipError.notGzip }
+            let extraLen = Int(extraLenData[0]) | (Int(extraLenData[1]) << 8)
+            offset += 2 + UInt64(extraLen)
+        }
+        
+        // FNAME — read null-terminated original filename
+        if flags & 0x08 != 0 {
+            handle.seek(toFileOffset: offset)
+            var nameBytes: [UInt8] = []
+            while true {
+                let byte = handle.readData(ofLength: 1)
+                guard byte.count == 1 else { throw GzipError.notGzip }
+                if byte[0] == 0 { break }
+                nameBytes.append(byte[0])
+            }
+            if !nameBytes.isEmpty {
+                originalName = String(bytes: nameBytes, encoding: .utf8)
+            }
+        }
+        
+        // Fall back to stripping .gz from the URL filename
+        let fileName = originalName ?? {
+            let name = url.lastPathComponent
+            if name.lowercased().hasSuffix(".gz") {
+                return String(name.dropLast(3))
+            }
+            return name
+        }()
+        
+        // Read uncompressed size from the last 4 bytes of the file (ISIZE, little-endian)
+        let fileSize = try handle.seekToEnd()
+        var uncompressedSize: Int64 = 0
+        if fileSize >= 4 {
+            handle.seek(toFileOffset: fileSize - 4)
+            let isizeData = handle.readData(ofLength: 4)
+            if isizeData.count == 4 {
+                uncompressedSize = Int64(isizeData[0])
+                    | (Int64(isizeData[1]) << 8)
+                    | (Int64(isizeData[2]) << 16)
+                    | (Int64(isizeData[3]) << 24)
+            }
+        }
+        
+        let entry = ArchiveEntry(
+            path: fileName,
+            isDirectory: false,
+            uncompressedSize: uncompressedSize,
+            modificationDate: modDate
+        )
+        
+        return [entry]
+    }
+    
     // MARK: - Inline Tar Header Parser
     
     private enum TarHeaderResult {

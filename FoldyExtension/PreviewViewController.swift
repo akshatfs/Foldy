@@ -166,6 +166,9 @@ class PreviewViewController: NSViewController, QLPreviewingController {
             case .gzipTar:
                 let entries = try GzipDecompressor.decompressAndParseTar(from: url)
                 items = ArchiveTreeBuilder.buildTree(from: entries)
+            case .gzip:
+                let entries = try GzipDecompressor.parseStandaloneGzip(from: url)
+                items = ArchiveTreeBuilder.buildTree(from: entries)
             case .rar:
                 let entries = try RarParser.parseEntries(from: url)
                 items = ArchiveTreeBuilder.buildTree(from: entries)
@@ -187,30 +190,31 @@ class PreviewViewController: NSViewController, QLPreviewingController {
     // MARK: - Archive Type Detection
     
     private enum ArchiveType {
-        case zip, tar, gzipTar, rar, folder
+        case zip, tar, gzipTar, gzip, rar, folder
     }
     
     private func detectArchiveType(url: URL) -> ArchiveType {
-        let ext = url.pathExtension.lowercased()
+        // Check compound extensions first so ".tar.gz" isn't mismatched on "gz" alone
+        let name = url.lastPathComponent.lowercased()
+        if name.hasSuffix(".tar.gz") {
+            return .gzipTar
+        }
         
-        // Check by extension first
+        // Then check single extensions
+        let ext = url.pathExtension.lowercased()
         switch ext {
         case "zip":
             return .zip
         case "tar":
             return .tar
-        case "gz", "tgz":
+        case "tgz":
             return .gzipTar
+        case "gz":
+            return .gzip
         case "rar":
             return .rar
         default:
             break
-        }
-        
-        // Check compound extensions like .tar.gz
-        let name = url.lastPathComponent.lowercased()
-        if name.hasSuffix(".tar.gz") {
-            return .gzipTar
         }
         
         // Fall back to UTType

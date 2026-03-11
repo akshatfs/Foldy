@@ -1,6 +1,6 @@
 //
 //  ContentView.swift
-//  Foldy
+//  Prvw
 //
 //  Created by Akshat Shukla on 15/02/26.
 //
@@ -19,7 +19,7 @@ struct ContentView: View {
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 80, height: 80)
 
-                Text("Foldy")
+                Text("Prvw")
                     .font(.largeTitle)
                     .fontWeight(.bold)
             }

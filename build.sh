@@ -2,10 +2,10 @@
 set -e
 
 # Configuration
-SCHEME="Foldy"
-ARCHIVE_PATH="./build/Foldy.xcarchive"
-EXPORT_PATH="./build/FoldyDist"
-DMG_NAME="Foldy.dmg"
+SCHEME="Prvw"
+ARCHIVE_PATH="./build/Prvw.xcarchive"
+EXPORT_PATH="./build/PrvwDist"
+DMG_NAME="Prvw.dmg"
 DMG_TEMP="./build/DMGTemp"
 TEAM_ID="G44GLW27US"
 
@@ -20,12 +20,12 @@ xcodebuild -scheme "$SCHEME" -configuration Release -destination 'generic/platfo
 # 2. Extract App from Archive
 echo -e "Step 2: Extracting app..."
 mkdir -p "$EXPORT_PATH"
-rm -rf "$EXPORT_PATH/Foldy.app"
-cp -R "$ARCHIVE_PATH/Products/Applications/Foldy.app" "$EXPORT_PATH/Foldy.app"
+rm -rf "$EXPORT_PATH/Prvw.app"
+cp -R "$ARCHIVE_PATH/Products/Applications/Prvw.app" "$EXPORT_PATH/Prvw.app"
 
 # 3. Verify universal architecture
 echo -e "Step 3: Verifying universal binary architecture..."
-APP_EXECUTABLE="$EXPORT_PATH/Foldy.app/Contents/MacOS/Foldy"
+APP_EXECUTABLE="$EXPORT_PATH/Prvw.app/Contents/MacOS/Prvw"
 if [ -f "$APP_EXECUTABLE" ]; then
   ARCHS_FOUND=$(lipo -archs "$APP_EXECUTABLE" 2>/dev/null || echo "unknown")
   echo -e "App executable architectures: $ARCHS_FOUND"
@@ -46,7 +46,7 @@ rm -rf "$DMG_TEMP"
 mkdir -p "$DMG_TEMP"
 
 # Copy app to temp directory
-cp -R "$EXPORT_PATH/Foldy.app" "$DMG_TEMP/Foldy.app"
+cp -R "$EXPORT_PATH/Prvw.app" "$DMG_TEMP/Prvw.app"
 
 # Create Applications symlink for drag-to-install
 ln -s /Applications "$DMG_TEMP/Applications"
@@ -55,7 +55,7 @@ ln -s /Applications "$DMG_TEMP/Applications"
 rm -f "$DMG_NAME"
 
 # Create DMG with UDZO compression
-hdiutil create -volname "Foldy" -srcfolder "$DMG_TEMP" -ov -format UDZO "$DMG_NAME" -quiet
+hdiutil create -volname "Prvw" -srcfolder "$DMG_TEMP" -ov -format UDZO "$DMG_NAME" -quiet
 
 # Clean up temp directory
 rm -rf "$DMG_TEMP"

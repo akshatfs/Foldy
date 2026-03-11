@@ -9,7 +9,7 @@
 /* Begin PBXBuildFile section */
 		7D953EF12F43A85D002616B1 /* bzip2.swift in Frameworks */ = {isa = PBXBuildFile; productRef = 7D953EF02F43A85D002616B1 /* bzip2.swift */; };
 		7D9CA03A2F41BBE100BAA903 /* Quartz.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7D9CA0392F41BBE100BAA903 /* Quartz.framework */; };
-		7D9CA0462F41BBE100BAA903 /* FoldyExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7D9CA0372F41BBE100BAA903 /* FoldyExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		7D9CA0462F41BBE100BAA903 /* PrvwExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7D9CA0372F41BBE100BAA903 /* PrvwExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -18,7 +18,7 @@
 			containerPortal = 7D9CA01D2F41BBCC00BAA903 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 7D9CA0362F41BBE100BAA903;
-			remoteInfo = FoldyExtension;
+			remoteInfo = PrvwExtension;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -29,7 +29,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				7D9CA0462F41BBE100BAA903 /* FoldyExtension.appex in Embed Foundation Extensions */,
+				7D9CA0462F41BBE100BAA903 /* PrvwExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -37,33 +37,33 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		7D9CA0252F41BBCC00BAA903 /* Foldy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Foldy.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		7D9CA0372F41BBE100BAA903 /* FoldyExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FoldyExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		7D9CA0252F41BBCC00BAA903 /* Prvw.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Prvw.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7D9CA0372F41BBE100BAA903 /* PrvwExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PrvwExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		7D9CA0392F41BBE100BAA903 /* Quartz.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Quartz.framework; path = System/Library/Frameworks/Quartz.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		7D9CA0472F41BBE100BAA903 /* Exceptions for "FoldyExtension" folder in "FoldyExtension" target */ = {
+		7D9CA0472F41BBE100BAA903 /* Exceptions for "PrvwExtension" folder in "PrvwExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = 7D9CA0362F41BBE100BAA903 /* FoldyExtension */;
+			target = 7D9CA0362F41BBE100BAA903 /* PrvwExtension */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		7D9CA0272F41BBCC00BAA903 /* Foldy */ = {
+		7D9CA0272F41BBCC00BAA903 /* Prvw */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Foldy;
+			path = Prvw;
 			sourceTree = "<group>";
 		};
-		7D9CA03B2F41BBE100BAA903 /* FoldyExtension */ = {
+		7D9CA03B2F41BBE100BAA903 /* PrvwExtension */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				7D9CA0472F41BBE100BAA903 /* Exceptions for "FoldyExtension" folder in "FoldyExtension" target */,
+				7D9CA0472F41BBE100BAA903 /* Exceptions for "PrvwExtension" folder in "PrvwExtension" target */,
 			);
-			path = FoldyExtension;
+			path = PrvwExtension;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -91,8 +91,8 @@
 		7D9CA01C2F41BBCC00BAA903 = {
 			isa = PBXGroup;
 			children = (
-				7D9CA0272F41BBCC00BAA903 /* Foldy */,
-				7D9CA03B2F41BBE100BAA903 /* FoldyExtension */,
+				7D9CA0272F41BBCC00BAA903 /* Prvw */,
+				7D9CA03B2F41BBE100BAA903 /* PrvwExtension */,
 				7D9CA0382F41BBE100BAA903 /* Frameworks */,
 				7D9CA0262F41BBCC00BAA903 /* Products */,
 			);
@@ -101,8 +101,8 @@
 		7D9CA0262F41BBCC00BAA903 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				7D9CA0252F41BBCC00BAA903 /* Foldy.app */,
-				7D9CA0372F41BBE100BAA903 /* FoldyExtension.appex */,
+				7D9CA0252F41BBCC00BAA903 /* Prvw.app */,
+				7D9CA0372F41BBE100BAA903 /* PrvwExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -118,9 +118,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		7D9CA0242F41BBCC00BAA903 /* Foldy */ = {
+		7D9CA0242F41BBCC00BAA903 /* Prvw */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 7D9CA0302F41BBCC00BAA903 /* Build configuration list for PBXNativeTarget "Foldy" */;
+			buildConfigurationList = 7D9CA0302F41BBCC00BAA903 /* Build configuration list for PBXNativeTarget "Prvw" */;
 			buildPhases = (
 				7D9CA0212F41BBCC00BAA903 /* Sources */,
 				7D9CA0222F41BBCC00BAA903 /* Frameworks */,
@@ -133,18 +133,18 @@
 				7D9CA0452F41BBE100BAA903 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				7D9CA0272F41BBCC00BAA903 /* Foldy */,
+				7D9CA0272F41BBCC00BAA903 /* Prvw */,
 			);
-			name = Foldy;
+			name = Prvw;
 			packageProductDependencies = (
 			);
-			productName = Foldy;
-			productReference = 7D9CA0252F41BBCC00BAA903 /* Foldy.app */;
+			productName = Prvw;
+			productReference = 7D9CA0252F41BBCC00BAA903 /* Prvw.app */;
 			productType = "com.apple.product-type.application";
 		};
-		7D9CA0362F41BBE100BAA903 /* FoldyExtension */ = {
+		7D9CA0362F41BBE100BAA903 /* PrvwExtension */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 7D9CA0482F41BBE100BAA903 /* Build configuration list for PBXNativeTarget "FoldyExtension" */;
+			buildConfigurationList = 7D9CA0482F41BBE100BAA903 /* Build configuration list for PBXNativeTarget "PrvwExtension" */;
 			buildPhases = (
 				7D9CA0332F41BBE100BAA903 /* Sources */,
 				7D9CA0342F41BBE100BAA903 /* Frameworks */,
@@ -155,14 +155,14 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				7D9CA03B2F41BBE100BAA903 /* FoldyExtension */,
+				7D9CA03B2F41BBE100BAA903 /* PrvwExtension */,
 			);
-			name = FoldyExtension;
+			name = PrvwExtension;
 			packageProductDependencies = (
 				7D953EF02F43A85D002616B1 /* bzip2.swift */,
 			);
-			productName = FoldyExtension;
-			productReference = 7D9CA0372F41BBE100BAA903 /* FoldyExtension.appex */;
+			productName = PrvwExtension;
+			productReference = 7D9CA0372F41BBE100BAA903 /* PrvwExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
@@ -183,7 +183,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 7D9CA0202F41BBCC00BAA903 /* Build configuration list for PBXProject "Foldy" */;
+			buildConfigurationList = 7D9CA0202F41BBCC00BAA903 /* Build configuration list for PBXProject "Prvw" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -200,8 +200,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				7D9CA0242F41BBCC00BAA903 /* Foldy */,
-				7D9CA0362F41BBE100BAA903 /* FoldyExtension */,
+				7D9CA0242F41BBCC00BAA903 /* Prvw */,
+				7D9CA0362F41BBE100BAA903 /* PrvwExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -243,7 +243,7 @@
 /* Begin PBXTargetDependency section */
 		7D9CA0452F41BBE100BAA903 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 7D9CA0362F41BBE100BAA903 /* FoldyExtension */;
+			target = 7D9CA0362F41BBE100BAA903 /* PrvwExtension */;
 			targetProxy = 7D9CA0442F41BBE100BAA903 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -389,7 +389,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.akshatfs.Foldy;
+				PRODUCT_BUNDLE_IDENTIFIER = com.akshatfs.Prvw;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -421,7 +421,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.akshatfs.Foldy;
+				PRODUCT_BUNDLE_IDENTIFIER = com.akshatfs.Prvw;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -436,7 +436,7 @@
 		7D9CA0492F41BBE100BAA903 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = FoldyExtension/FoldyExtension.entitlements;
+				CODE_SIGN_ENTITLEMENTS = PrvwExtension/PrvwExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = G44GLW27US;
@@ -444,8 +444,8 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = FoldyExtension/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = FoldyExtension;
+				INFOPLIST_FILE = PrvwExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PrvwExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -453,7 +453,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.akshatfs.Foldy.FoldyExtension;
+				PRODUCT_BUNDLE_IDENTIFIER = com.akshatfs.Prvw.PrvwExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -467,7 +467,7 @@
 		7D9CA04A2F41BBE100BAA903 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = FoldyExtension/FoldyExtension.entitlements;
+				CODE_SIGN_ENTITLEMENTS = PrvwExtension/PrvwExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = G44GLW27US;
@@ -475,8 +475,8 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = FoldyExtension/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = FoldyExtension;
+				INFOPLIST_FILE = PrvwExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PrvwExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -484,7 +484,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.akshatfs.Foldy.FoldyExtension;
+				PRODUCT_BUNDLE_IDENTIFIER = com.akshatfs.Prvw.PrvwExtension;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -498,7 +498,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		7D9CA0202F41BBCC00BAA903 /* Build configuration list for PBXProject "Foldy" */ = {
+		7D9CA0202F41BBCC00BAA903 /* Build configuration list for PBXProject "Prvw" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7D9CA02E2F41BBCC00BAA903 /* Debug */,
@@ -507,7 +507,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		7D9CA0302F41BBCC00BAA903 /* Build configuration list for PBXNativeTarget "Foldy" */ = {
+		7D9CA0302F41BBCC00BAA903 /* Build configuration list for PBXNativeTarget "Prvw" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7D9CA0312F41BBCC00BAA903 /* Debug */,
@@ -516,7 +516,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		7D9CA0482F41BBE100BAA903 /* Build configuration list for PBXNativeTarget "FoldyExtension" */ = {
+		7D9CA0482F41BBE100BAA903 /* Build configuration list for PBXNativeTarget "PrvwExtension" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7D9CA0492F41BBE100BAA903 /* Debug */,

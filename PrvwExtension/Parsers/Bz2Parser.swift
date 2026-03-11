@@ -1,6 +1,6 @@
 //
 //  Bz2Parser.swift
-//  FoldyExtension
+//  PrvwExtension
 //
 //  Created by Akshat Shukla on 15/02/26.
 //

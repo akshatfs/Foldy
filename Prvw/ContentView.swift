@@ -45,7 +45,15 @@ struct ContentView: View {
                     .font(.title3)
                     .fontWeight(.semibold)
 
-                Text("Folder (dir), ZIP (.zip), TAR (.tar), GZip (.gz, .tgz, .tar.gz), RAR (.rar)")
+                Text("Folder (dir)")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                
+                Text("Archives: (.zip, .tar, .tar.gz, .tgz, .rar)")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+
+                Text("Markdown: (.md, .markdown)")
                     .font(.body)
                     .foregroundStyle(.secondary)
             }

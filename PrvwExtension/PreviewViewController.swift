@@ -21,8 +21,14 @@ extension NSUserInterfaceItemIdentifier {
 
 class PreviewViewController: NSViewController, QLPreviewingController {
     
+    // Archive / folder views
     private var outlineView: NSOutlineView!
     private var scrollView: NSScrollView!
+    
+    // Markdown views
+    private var markdownScrollView: NSScrollView!
+    private var markdownTextView: NSTextView!
+    
     private var progressIndicator: NSProgressIndicator!
     private var errorLabel: NSTextField?
     private var rootItems: [PreviewItem] = []
@@ -51,6 +57,7 @@ class PreviewViewController: NSViewController, QLPreviewingController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupOutlineView()
+        setupMarkdownView()
         setupLoadingView()
     }
     
@@ -114,6 +121,40 @@ class PreviewViewController: NSViewController, QLPreviewingController {
         ])
     }
     
+    private func setupMarkdownView() {
+        // Text view
+        markdownTextView = NSTextView()
+        markdownTextView.isEditable = false
+        markdownTextView.isSelectable = true
+        markdownTextView.drawsBackground = true
+        markdownTextView.backgroundColor = .textBackgroundColor
+        markdownTextView.textContainerInset = NSSize(width: 20, height: 20)
+        markdownTextView.autoresizingMask = [.width]
+        markdownTextView.isVerticallyResizable = true
+        markdownTextView.isHorizontallyResizable = false
+        markdownTextView.textContainer?.widthTracksTextView = true
+        markdownTextView.textContainer?.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude,
+                                                               height: CGFloat.greatestFiniteMagnitude)
+        // Scroll view
+        markdownScrollView = NSScrollView()
+        markdownScrollView.documentView = markdownTextView
+        markdownScrollView.hasVerticalScroller = true
+        markdownScrollView.hasHorizontalScroller = false
+        markdownScrollView.autohidesScrollers = true
+        markdownScrollView.borderType = .noBorder
+        markdownScrollView.translatesAutoresizingMaskIntoConstraints = false
+        markdownScrollView.isHidden = true
+        
+        view.addSubview(markdownScrollView)
+        
+        NSLayoutConstraint.activate([
+            markdownScrollView.topAnchor.constraint(equalTo: view.topAnchor),
+            markdownScrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            markdownScrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            markdownScrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+    }
+    
     private func setupLoadingView() {
         progressIndicator = NSProgressIndicator()
         progressIndicator.style = .spinning
@@ -132,8 +173,9 @@ class PreviewViewController: NSViewController, QLPreviewingController {
     // MARK: - Error UI
     
     private func showError(_ message: String) {
-        // Hide the outline/scroll view so the user doesn't see a blank table
+        // Hide all content views so the user doesn't see blank content
         scrollView.isHidden = true
+        markdownScrollView.isHidden = true
         
         // Reuse or create the error label
         if errorLabel == nil {
@@ -169,6 +211,7 @@ class PreviewViewController: NSViewController, QLPreviewingController {
         await MainActor.run {
             progressIndicator.startAnimation(nil)
             scrollView.isHidden = true
+            markdownScrollView.isHidden = true
             errorLabel?.isHidden = true
         }
         
@@ -176,45 +219,59 @@ class PreviewViewController: NSViewController, QLPreviewingController {
         defer { url.stopAccessingSecurityScopedResource() }
         
         do {
-            let items: [PreviewItem]
             let archiveType = detectArchiveType(url: url)
             
-            switch archiveType {
-            case .zip:
-                let entries = try ZipParser.parseEntries(from: url)
-                items = ArchiveTreeBuilder.buildTree(from: entries)
-            case .tar:
-                let entries = try TarParser.parseEntries(from: url)
-                items = ArchiveTreeBuilder.buildTree(from: entries)
-            case .gzipTar:
-                let entries = try GzipDecompressor.decompressAndParseTar(from: url)
-                items = ArchiveTreeBuilder.buildTree(from: entries)
-            case .gzip:
-                let entries = try GzipDecompressor.parseStandaloneGzip(from: url)
-                items = ArchiveTreeBuilder.buildTree(from: entries)
-            case .rar:
-                let entries = try RarParser.parseEntries(from: url)
-                items = ArchiveTreeBuilder.buildTree(from: entries)
-            case .bz2Tar:
-                let entries = try Bz2Parser.decompressAndParseTar(from: url)
-                items = ArchiveTreeBuilder.buildTree(from: entries)
-            case .bz2:
-                let entries = try Bz2Parser.parseStandaloneBz2(from: url)
-                items = ArchiveTreeBuilder.buildTree(from: entries)
-            case .folder:
-                items = FileItem.loadChildren(of: url)
-            }
-            
-            await MainActor.run {
-                self.progressIndicator.stopAnimation(nil)
-                self.rootItems = items
-                self.scrollView.isHidden = false
-                self.outlineView.reloadData()
+            if archiveType == .markdown {
+                // Render markdown off the main thread, then display
+                let attributed = try MarkdownRenderer.render(url: url)
+                await MainActor.run {
+                    self.progressIndicator.stopAnimation(nil)
+                    self.markdownTextView.textStorage?.setAttributedString(attributed)
+                    // Scroll to top
+                    self.markdownTextView.scrollToBeginningOfDocument(nil)
+                    self.markdownScrollView.isHidden = false
+                }
+            } else {
+                let items: [PreviewItem]
+                switch archiveType {
+                case .zip:
+                    let entries = try ZipParser.parseEntries(from: url)
+                    items = ArchiveTreeBuilder.buildTree(from: entries)
+                case .tar:
+                    let entries = try TarParser.parseEntries(from: url)
+                    items = ArchiveTreeBuilder.buildTree(from: entries)
+                case .gzipTar:
+                    let entries = try GzipDecompressor.decompressAndParseTar(from: url)
+                    items = ArchiveTreeBuilder.buildTree(from: entries)
+                case .gzip:
+                    let entries = try GzipDecompressor.parseStandaloneGzip(from: url)
+                    items = ArchiveTreeBuilder.buildTree(from: entries)
+                case .rar:
+                    let entries = try RarParser.parseEntries(from: url)
+                    items = ArchiveTreeBuilder.buildTree(from: entries)
+                case .bz2Tar:
+                    let entries = try Bz2Parser.decompressAndParseTar(from: url)
+                    items = ArchiveTreeBuilder.buildTree(from: entries)
+                case .bz2:
+                    let entries = try Bz2Parser.parseStandaloneBz2(from: url)
+                    items = ArchiveTreeBuilder.buildTree(from: entries)
+                case .folder:
+                    items = FileItem.loadChildren(of: url)
+                case .markdown:
+                    items = [] // unreachable
+                }
+                
+                await MainActor.run {
+                    self.progressIndicator.stopAnimation(nil)
+                    self.rootItems = items
+                    self.scrollView.isHidden = false
+                    self.outlineView.reloadData()
+                }
             }
         } catch {
             await MainActor.run {
                 self.progressIndicator.stopAnimation(nil)
-                self.showError("Unable to preview this archive: \(error.localizedDescription)")
+                self.showError("Unable to preview this file: \(error.localizedDescription)")
             }
         }
     }
@@ -222,7 +279,7 @@ class PreviewViewController: NSViewController, QLPreviewingController {
     // MARK: - Archive Type Detection
     
     private enum ArchiveType {
-        case zip, tar, gzipTar, gzip, rar, bz2, bz2Tar, folder
+        case zip, tar, gzipTar, gzip, rar, bz2, bz2Tar, folder, markdown
     }
     
     private func detectArchiveType(url: URL) -> ArchiveType {
@@ -238,6 +295,8 @@ class PreviewViewController: NSViewController, QLPreviewingController {
         // Then check single extensions
         let ext = url.pathExtension.lowercased()
         switch ext {
+        case "md", "markdown":
+            return .markdown
         case "zip":
             return .zip
         case "tar":
@@ -256,6 +315,7 @@ class PreviewViewController: NSViewController, QLPreviewingController {
         
         // Fall back to UTType
         if let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType {
+            if let mdType = UTType("net.daringfireball.markdown"), type.conforms(to: mdType) { return .markdown }
             if type.conforms(to: UTType.zip) { return .zip }
             if type.conforms(to: UTType.gzip) { return .gzipTar }
             if let bz2Type = UTType(filenameExtension: "bz2"), type.conforms(to: bz2Type) { return .bz2 }

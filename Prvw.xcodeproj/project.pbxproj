@@ -10,6 +10,7 @@
 		7D953EF12F43A85D002616B1 /* bzip2.swift in Frameworks */ = {isa = PBXBuildFile; productRef = 7D953EF02F43A85D002616B1 /* bzip2.swift */; };
 		7D9CA03A2F41BBE100BAA903 /* Quartz.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7D9CA0392F41BBE100BAA903 /* Quartz.framework */; };
 		7D9CA0462F41BBE100BAA903 /* PrvwExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7D9CA0372F41BBE100BAA903 /* PrvwExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		7D9FC97C2F61741A00179131 /* Markdown in Frameworks */ = {isa = PBXBuildFile; productRef = 7D9FC97B2F61741A00179131 /* Markdown */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -80,6 +81,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7D9FC97C2F61741A00179131 /* Markdown in Frameworks */,
 				7D9CA03A2F41BBE100BAA903 /* Quartz.framework in Frameworks */,
 				7D953EF12F43A85D002616B1 /* bzip2.swift in Frameworks */,
 			);
@@ -160,6 +162,7 @@
 			name = PrvwExtension;
 			packageProductDependencies = (
 				7D953EF02F43A85D002616B1 /* bzip2.swift */,
+				7D9FC97B2F61741A00179131 /* Markdown */,
 			);
 			productName = PrvwExtension;
 			productReference = 7D9CA0372F41BBE100BAA903 /* PrvwExtension.appex */;
@@ -194,6 +197,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				7D953EEF2F43A42B002616B1 /* XCRemoteSwiftPackageReference "bzip2.swift" */,
+				7D9FC97A2F61741A00179131 /* XCRemoteSwiftPackageReference "swift-markdown" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 7D9CA0262F41BBCC00BAA903 /* Products */;
@@ -536,6 +540,14 @@
 				minimumVersion = 1.0.3;
 			};
 		};
+		7D9FC97A2F61741A00179131 /* XCRemoteSwiftPackageReference "swift-markdown" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/swiftlang/swift-markdown.git";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -543,6 +555,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 7D953EEF2F43A42B002616B1 /* XCRemoteSwiftPackageReference "bzip2.swift" */;
 			productName = bzip2.swift;
+		};
+		7D9FC97B2F61741A00179131 /* Markdown */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7D9FC97A2F61741A00179131 /* XCRemoteSwiftPackageReference "swift-markdown" */;
+			productName = Markdown;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

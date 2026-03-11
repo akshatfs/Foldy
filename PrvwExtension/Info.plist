@@ -18,6 +18,7 @@
 				<string>com.rarlab.rar-archive</string>
 				<string>public.bzip2-archive</string>
 				<string>public.tar-bzip2-archive</string>
+				<string>net.daringfireball.markdown</string>
 			</array>
 			<key>QLSupportsSearchableItems</key>
 			<false/>
